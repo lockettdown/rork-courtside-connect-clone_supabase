@@ -1453,8 +1453,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   scoreBox: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#1A1A1A',
     borderRadius: 10,
     paddingHorizontal: 6,
