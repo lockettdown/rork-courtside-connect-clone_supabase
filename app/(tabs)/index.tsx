@@ -180,8 +180,6 @@ export default function HomeScreen() {
           ))}
         </View>
 
-
-
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recent Results</Text>
           <View style={styles.resultCard}>

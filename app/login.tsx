@@ -175,7 +175,7 @@ export default function LoginScreen() {
             style={styles.signupPrompt}
           >
             <Text style={styles.signupPromptText}>
-              Don&apos;t have an account? <Text style={styles.signupLink}>Sign up</Text>
+              {"Don't have an account? "}<Text style={styles.signupLink}>Sign up</Text>
             </Text>
           </TouchableOpacity>
         </View>

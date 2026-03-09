@@ -428,7 +428,7 @@ export default function TeamScreen() {
                 freeThrowsAttempted: 0,
               },
             };
-            addPlayer(newPlayer);
+            void addPlayer(newPlayer);
             setIsAddPlayerModalVisible(false);
           }}
         />
@@ -502,7 +502,7 @@ export default function TeamScreen() {
               </View>
               <Text style={styles.deleteTitle}>Delete Team</Text>
               <Text style={styles.deleteMessage}>
-                Are you sure you want to delete &quot;{team.name}&quot;? This will also delete all players, events, and fans associated with this team.
+                {`Are you sure you want to delete "${team.name}"? This will also delete all players, events, and fans associated with this team.`}
               </Text>
               <Text style={styles.deleteWarning}>This action cannot be undone.</Text>
               <View style={styles.deleteActions}>
