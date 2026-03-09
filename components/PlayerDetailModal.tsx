@@ -170,9 +170,9 @@ export default function PlayerDetailModal({ visible, player, onClose, onSave }: 
               <>
                 <Text style={styles.playerName}>{player.name}</Text>
                 <Text style={styles.jerseyText}>#{player.jerseyNumber}</Text>
-                {player.position && (
+                {player.position ? (
                   <Text style={styles.positionText}>{player.position}</Text>
-                )}
+                ) : null}
               </>
             ) : null}
           </View>

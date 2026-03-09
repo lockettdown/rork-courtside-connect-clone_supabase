@@ -126,7 +126,7 @@ export default function ScoreScreen() {
               const gameId = generateUUID();
               const now = new Date();
 
-              await addGame({
+              addGame({
                 id: gameId,
                 homeTeamId: homeTeamId,
                 awayTeamId: awayTeamId,
@@ -734,11 +734,11 @@ export default function ScoreScreen() {
                 })
               )}
             </ScrollView>
-            {selectedPlayerId && (
+            {selectedPlayerId ? (
               <View style={styles.selectedPlayerIndicator}>
                 <Text style={styles.selectedPlayerLabel}>ACTIVE</Text>
               </View>
-            )}
+            ) : null}
           </View>
         </View>
 
@@ -996,7 +996,7 @@ export default function ScoreScreen() {
         </View>
       )}
 
-      {showPlayerStatsModal && editingPlayerId && (
+      {showPlayerStatsModal && !!editingPlayerId && (
         <View style={styles.playerStatsModalOverlay}>
           <View style={styles.playerStatsModal}>
             <View style={styles.playerStatsModalHeader}>
@@ -1188,7 +1188,7 @@ export default function ScoreScreen() {
                     const gameId = generateUUID();
                     const now = new Date();
 
-                    await addGame({
+                    addGame({
                       id: gameId,
                       homeTeamId: homeTeamId,
                       awayTeamId: awayTeamId,

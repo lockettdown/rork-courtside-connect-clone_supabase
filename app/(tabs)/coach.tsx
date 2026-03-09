@@ -90,7 +90,7 @@ export default function CoachScreen() {
                 />
               ))}
               
-              {currentPath && (
+              {currentPath ? (
                 <Path
                   d={currentPath}
                   stroke="#FF0000"
@@ -99,7 +99,7 @@ export default function CoachScreen() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
-              )}
+              ) : null}
             </Svg>
           </View>
         </View>
