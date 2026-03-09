@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: theme.fontSize.xl,
     fontWeight: '700' as const,
-    color: theme.colors.text,
+    color: '#007efb',
     marginBottom: theme.spacing.md,
   },
   addButtonContainer: {
