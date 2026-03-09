@@ -611,12 +611,14 @@ export const [AppProvider, useApp] = createContextHook(() => {
     mutationFn: async (updatedEvent: Event) => {
       if (!user?.id) throw new Error('Not authenticated');
       if (!isSupabaseConfigured) throw new Error('Database not configured');
+      console.log('Updating event in database:', updatedEvent.id, { date: updatedEvent.date, time: updatedEvent.time });
       const { data, error } = await supabase
         .from('events')
         .update({
           type: updatedEvent.type,
           title: updatedEvent.title,
           opponent: updatedEvent.opponent,
+          team_id: updatedEvent.teamId,
           team_name: updatedEvent.teamName,
           date: updatedEvent.date,
           time: updatedEvent.time,
@@ -629,10 +631,29 @@ export const [AppProvider, useApp] = createContextHook(() => {
         .eq('user_id', user.id)
         .select()
         .single();
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating event:', JSON.stringify(error, null, 2));
+        throw error;
+      }
+      console.log('Event updated successfully:', data);
       return data;
     },
-    onSuccess: () => {
+    onMutate: async (updatedEvent: Event) => {
+      await queryClient.cancelQueries({ queryKey: ['events', user?.id] });
+      const previousEvents = queryClient.getQueryData<Event[]>(['events', user?.id]);
+      queryClient.setQueryData<Event[]>(['events', user?.id], (old) => {
+        if (!old) return old;
+        return old.map(e => e.id === updatedEvent.id ? updatedEvent : e);
+      });
+      return { previousEvents };
+    },
+    onError: (error: Error, _updatedEvent, context) => {
+      console.error('Error updating event:', error.message);
+      if (context?.previousEvents) {
+        queryClient.setQueryData(['events', user?.id], context.previousEvents);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['events'] });
     },
   });
