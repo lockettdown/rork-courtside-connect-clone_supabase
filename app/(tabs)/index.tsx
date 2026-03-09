@@ -145,7 +145,7 @@ export default function HomeScreen() {
                   activeOpacity={0.7}
                   onPress={() => router.push(`/(tabs)/team/${team.id}`)}
                 >
-                  <Text style={styles.teamCardName} numberOfLines={2} ellipsizeMode="tail">{team.name}</Text>
+                  <Text style={styles.teamCardName}>{team.name}</Text>
                   <Text style={styles.teamCardRecord}>{team.record}</Text>
                 </TouchableOpacity>
               </View>
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    height: 132,
+    minHeight: 100,
   },
   teamCardName: {
     fontSize: theme.fontSize.md,
@@ -277,7 +277,6 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginBottom: theme.spacing.md,
     textAlign: 'center',
-    minHeight: 48,
   },
   teamCardRecord: {
     fontSize: theme.fontSize.xxxl,
