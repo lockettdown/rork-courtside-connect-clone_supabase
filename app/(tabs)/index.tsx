@@ -14,7 +14,7 @@ import { Event, Team, Player } from '@/types';
 import uuid from 'react-native-uuid';
 
 export default function HomeScreen() {
-  const { user, teams = [], events = [], addTeam, addEvent, addPlayer } = useApp();
+  const { user, teams = [], events = [], addTeam, addEvent, addPlayer, updateEvent } = useApp();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -213,7 +213,10 @@ export default function HomeScreen() {
         visible={showEventDetailModal}
         event={selectedEvent}
         onClose={() => setShowEventDetailModal(false)}
-        onUpdate={() => {}}
+        onUpdate={(updatedEvent) => {
+          updateEvent(updatedEvent);
+          setSelectedEvent(updatedEvent);
+        }}
       />
     </View>
   );
