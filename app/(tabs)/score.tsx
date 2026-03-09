@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RotateCcw, UserPlus, ChevronLeft, Users, Dribbble, Trophy, ChevronDown, RefreshCw, User, Hand, Ban, Repeat, AlertTriangle } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -44,6 +44,8 @@ export default function ScoreScreen() {
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
   const [summaryTeamTab, setSummaryTeamTab] = useState<'home' | 'away'>('home');
   const [statsFinalized, setStatsFinalized] = useState<boolean>(false);
+
+  const awayTeamDisplayName = opponentName.trim() || 'Opponent';
 
   useEffect(() => {
     if (params.teamId && teams.length > 0 && !gameStarted) {
@@ -625,6 +627,30 @@ export default function ScoreScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.matchupCard}>
+          <View style={styles.matchupTeamBlock}>
+            <Text style={styles.matchupLabel}>Your Team</Text>
+            <Text style={styles.matchupName} numberOfLines={1}>{selectedTeam?.name || 'Home Team'}</Text>
+          </View>
+          <View style={styles.matchupDivider}>
+            <Text style={styles.matchupDividerText}>VS</Text>
+          </View>
+          <View style={styles.matchupTeamBlock}>
+            <Text style={styles.matchupLabel}>Opponent</Text>
+            <TextInput
+              value={opponentName}
+              onChangeText={setOpponentName}
+              placeholder="Enter opponent name"
+              placeholderTextColor="#666"
+              style={styles.opponentInput}
+              autoCapitalize="words"
+              autoCorrect={false}
+              returnKeyType="done"
+              testID="opponent-name-input"
+            />
+          </View>
+        </View>
+
         <View style={styles.scoreSection}>
           <View style={styles.scoreBox}>
             <TouchableOpacity 
@@ -663,7 +689,7 @@ export default function ScoreScreen() {
             </TouchableOpacity>
             <View style={styles.scoreDisplay}>
               <Text style={styles.scoreValue}>{awayScore}</Text>
-              <Text style={styles.scoreLabel}>OPP</Text>
+              <Text style={styles.scoreLabel} numberOfLines={1}>{awayTeamDisplayName.toUpperCase()}</Text>
             </View>
             <TouchableOpacity 
               style={styles.scoreAdjustButton}
@@ -690,7 +716,7 @@ export default function ScoreScreen() {
             activeOpacity={0.7}
           >
             <Text style={[styles.teamToggleText, activeTeam === 'away' && styles.teamToggleTextActive]}>
-              AWAY TEAM
+              {awayTeamDisplayName}
             </Text>
           </TouchableOpacity>
         </View>
@@ -862,7 +888,7 @@ export default function ScoreScreen() {
         </View>
 
         <View style={styles.playerStatsSection}>
-          <Text style={styles.playerStatsSectionTitle}>PLAYER STATS ({activeTeam === 'home' ? 'HOME' : 'AWAY'})</Text>
+          <Text style={styles.playerStatsSectionTitle}>PLAYER STATS ({activeTeam === 'home' ? (selectedTeam?.name || 'HOME') : awayTeamDisplayName})</Text>
           <View style={styles.playerStatsGrid}>
             {teamPlayers.map((player) => {
               const stats = getPlayerGameStats(player.id);
@@ -1086,7 +1112,7 @@ export default function ScoreScreen() {
                 </View>
                 <Text style={styles.scoreDivider}>-</Text>
                 <View style={styles.finalTeamScore}>
-                  <Text style={styles.finalTeamName}>{opponentName || 'Away'}</Text>
+                  <Text style={styles.finalTeamName}>{awayTeamDisplayName}</Text>
                   <Text style={[styles.finalScore, awayScore > homeScore && styles.winningScore]}>{awayScore}</Text>
                 </View>
               </View>
@@ -1108,7 +1134,7 @@ export default function ScoreScreen() {
                 activeOpacity={0.7}
               >
                 <Text style={[styles.summaryTeamToggleText, summaryTeamTab === 'away' && styles.summaryTeamToggleTextActive]}>
-                  {opponentName || 'Away'}
+                  {awayTeamDisplayName}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1444,6 +1470,57 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
+  },
+  matchupCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#141414',
+    borderWidth: 1,
+    borderColor: '#262626',
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 16,
+    gap: 12,
+  },
+  matchupTeamBlock: {
+    flex: 1,
+  },
+  matchupLabel: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: '#888',
+    textTransform: 'uppercase' as const,
+    marginBottom: 8,
+    letterSpacing: 0.6,
+  },
+  matchupName: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: '#FFFFFF',
+  },
+  matchupDivider: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#ff6900',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  matchupDividerText: {
+    fontSize: 12,
+    fontWeight: '800' as const,
+    color: '#FFFFFF',
+  },
+  opponentInput: {
+    backgroundColor: '#1F1F1F',
+    borderWidth: 1,
+    borderColor: '#303030',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#FFFFFF',
   },
   scoreSection: {
     flexDirection: 'row',
