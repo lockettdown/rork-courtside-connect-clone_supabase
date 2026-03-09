@@ -65,6 +65,7 @@ export default function EventsScreen() {
 
   const handleUpdateEvent = (updatedEvent: Event) => {
     updateEvent(updatedEvent);
+    setSelectedEvent(updatedEvent);
   };
 
   const handleAddEvent = (eventData: {
