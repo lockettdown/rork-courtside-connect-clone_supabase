@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -49,14 +49,39 @@ export default function AddEventModal({ visible, onClose, onSave }: AddEventModa
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<Date>(new Date());
 
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+
+    const hasSelectedTeam = teams.some((team) => team.id === selectedTeamId);
+    if (!hasSelectedTeam) {
+      const nextTeamId = teams[0]?.id ?? '';
+      console.log('Resetting add-event team selection:', {
+        previousTeamId: selectedTeamId,
+        nextTeamId,
+        teamCount: teams.length,
+      });
+      setSelectedTeamId(nextTeamId);
+    }
+  }, [selectedTeamId, teams, visible]);
+
   const handleSave = () => {
     if (title.trim() && selectedTeamId && date.trim() && time.trim() && location.trim()) {
-      const selectedTeam = teams.find(t => t.id === selectedTeamId);
+      const selectedTeam = teams.find((team) => team.id === selectedTeamId);
+      if (!selectedTeam) {
+        console.error('Unable to save event because the selected team was not found:', {
+          selectedTeamId,
+          availableTeamIds: teams.map((team) => team.id),
+        });
+        return;
+      }
+
       onSave({
         type: eventType,
         title: title.trim(),
         teamId: selectedTeamId,
-        teamName: selectedTeam?.name || '',
+        teamName: selectedTeam.name,
         date: date.trim(),
         time: time.trim(),
         location: location.trim(),

@@ -17,6 +17,10 @@ const ensureUuid = (value?: string): string => {
   return uuid.v4() as string;
 };
 
+const isUuid = (value?: string): value is string => {
+  return typeof value === 'string' && UUID_REGEX.test(value);
+};
+
 const getErrorMessage = (error: unknown, fallback: string): string => {
   if (error instanceof Error) {
     return error.message;
@@ -622,10 +626,20 @@ export const [AppProvider, useApp] = createContextHook(() => {
       if (!isSupabaseConfigured) throw new Error('Database not configured');
 
       const eventId = ensureUuid(event.id);
+      const normalizedTeamId = isUuid(event.teamId) ? event.teamId : null;
+
+      if (!normalizedTeamId) {
+        console.error('Invalid team ID detected while adding event:', {
+          eventId,
+          teamId: event.teamId,
+          title: event.title,
+        });
+        throw new Error('Please select a valid team before adding an event.');
+      }
+
       const eventPayload = {
-        id: eventId,
         user_id: user.id,
-        team_id: event.teamId,
+        team_id: normalizedTeamId,
         type: event.type,
         title: event.title,
         opponent: event.opponent || null,
@@ -636,7 +650,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
         is_home: event.isHome !== undefined ? event.isHome : true,
       };
 
-      console.log('Adding event:', { ...event, id: eventId });
+      console.log('Adding event:', { ...event, id: eventId, normalizedTeamId });
       console.log('Adding event payload:', eventPayload);
 
       const { data, error } = await supabase
