@@ -28,8 +28,40 @@ export default function EventsScreen() {
     return weekEnd;
   };
 
+  const parseEventDate = (dateStr: string): Date => {
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      const [month, day, year] = parts;
+      return new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00`);
+    }
+    const d = new Date(dateStr + 'T00:00:00');
+    if (!isNaN(d.getTime())) return d;
+    return new Date(dateStr);
+  };
+
+  const parseEventDateTime = (dateStr: string, timeStr: string): Date => {
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      const [month, day, year] = parts;
+      const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      const timeMatch = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+      if (timeMatch) {
+        let hours = parseInt(timeMatch[1], 10);
+        const minutes = timeMatch[2];
+        const ampm = timeMatch[3].toUpperCase();
+        if (ampm === 'PM' && hours !== 12) hours += 12;
+        if (ampm === 'AM' && hours === 12) hours = 0;
+        return new Date(`${isoDate}T${hours.toString().padStart(2, '0')}:${minutes}:00`);
+      }
+      return new Date(`${isoDate}T00:00:00`);
+    }
+    const d = new Date(dateStr + 'T' + timeStr);
+    if (!isNaN(d.getTime())) return d;
+    return new Date(dateStr);
+  };
+
   const filteredEvents = events.filter((event) => {
-    const eventDate = new Date(event.date + 'T00:00:00');
+    const eventDate = parseEventDate(event.date);
     eventDate.setHours(0, 0, 0, 0);
 
     if (filter === 'today') {
@@ -39,13 +71,13 @@ export default function EventsScreen() {
     }
     return true;
   }).sort((a, b) => {
-    const dateA = new Date(a.date + 'T' + a.time);
-    const dateB = new Date(b.date + 'T' + b.time);
+    const dateA = parseEventDateTime(a.date, a.time);
+    const dateB = parseEventDateTime(b.date, b.time);
     return dateA.getTime() - dateB.getTime();
   });
 
   const groupedEvents = filteredEvents.reduce((acc, event) => {
-    const date = new Date(event.date + 'T00:00:00');
+    const date = parseEventDate(event.date);
     const dateKey = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
     if (!acc[dateKey]) {
       acc[dateKey] = [];
@@ -55,6 +87,8 @@ export default function EventsScreen() {
   }, {} as Record<string, typeof events>);
 
   const formatTime = (timeStr: string) => {
+    const timeMatch = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+    if (timeMatch) return timeStr;
     const date = new Date('2000-01-01T' + timeStr);
     if (isNaN(date.getTime())) return timeStr;
     return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
