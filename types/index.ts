@@ -131,3 +131,19 @@ export interface Fan {
   invitedAt: string;
   joinedAt?: string;
 }
+
+export interface ChatMember {
+  id: string;
+  name: string;
+  role: 'coach' | 'player' | 'parent';
+  avatar?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderRole: 'coach' | 'player' | 'parent';
+  text: string;
+  timestamp: number;
+}
