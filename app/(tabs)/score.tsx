@@ -46,33 +46,44 @@ export default function ScoreScreen() {
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
   const [summaryTeamTab, setSummaryTeamTab] = useState<'home' | 'away'>('home');
   const [statsFinalized, setStatsFinalized] = useState<boolean>(false);
+  const [currentEventId, setCurrentEventId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (params.teamId && teams.length > 0 && !gameStarted) {
-      const team = teams.find(t => t.id === params.teamId);
-      if (team) {
-        console.log('Auto-selecting team from event:', team.name, 'TeamID:', team.id, 'Opponent:', params.opponent);
-        console.log('Available players:', players.length, 'Players for this team:', players.filter(p => p.teamId === team.id).length);
-        const generateUUID = () => {
-          return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-            const r = Math.random() * 16 | 0;
-            const v = c === 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
-          });
-        };
-        setSelectedTeam(team);
-        setHomeTeamId(team.id);
-        setAwayTeamId(`temp-opponent-${generateUUID()}`);
-        setOpponentName(params.opponent || '');
-        setGameStarted(true);
-        setOnCourt([]);
-        setGameStats({});
-        setHomeScore(0);
-        setAwayScore(0);
-        setQuarter(1);
+    if (params.teamId && teams.length > 0) {
+      const incomingEventId = params.eventId || null;
+      const isNewEvent = incomingEventId && incomingEventId !== currentEventId;
+      
+      if (!gameStarted || isNewEvent) {
+        const team = teams.find(t => t.id === params.teamId);
+        if (team) {
+          console.log('Auto-selecting team from event:', team.name, 'TeamID:', team.id, 'Opponent:', params.opponent, 'EventId:', params.eventId);
+          console.log('Available players:', players.length, 'Players for this team:', players.filter(p => p.teamId === team.id).length);
+          const generateUUID = () => {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+              const r = Math.random() * 16 | 0;
+              const v = c === 'x' ? r : (r & 0x3 | 0x8);
+              return v.toString(16);
+            });
+          };
+          setSelectedTeam(team);
+          setHomeTeamId(team.id);
+          setAwayTeamId(`temp-opponent-${generateUUID()}`);
+          setOpponentName(params.opponent || '');
+          setGameStarted(true);
+          setOnCourt([]);
+          setGameStats({});
+          setHomeScore(0);
+          setAwayScore(0);
+          setQuarter(1);
+          setTemporaryPlayers([]);
+          setSelectedPlayerId(null);
+          setStatsFinalized(false);
+          setGameSummaryVisible(false);
+          setCurrentEventId(incomingEventId);
+        }
       }
     }
-  }, [params.teamId, params.opponent, teams, gameStarted, players]);
+  }, [params.teamId, params.opponent, params.eventId, teams, gameStarted, currentEventId, players]);
 
   const handleSelectTeam = (team: Team) => {
     setPendingTeam(team);
