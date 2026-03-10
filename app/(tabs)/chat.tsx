@@ -35,12 +35,12 @@ const STORAGE_KEY_MESSAGES = 'chat_messages';
 
 const INITIAL_MEMBERS: ChatMember[] = [
   { id: 'admin', name: 'Coach (You)', role: 'coach' },
-  { id: 'm1', name: 'Marcus Johnson', role: 'player' },
-  { id: 'm2', name: 'Tyler Rodriguez', role: 'player' },
-  { id: 'm3', name: 'Jayden Williams', role: 'player' },
-  { id: 'm4', name: 'Sarah Johnson', role: 'parent' },
-  { id: 'm5', name: 'Michael Rodriguez', role: 'parent' },
-  { id: 'm6', name: 'Coach Thompson', role: 'coach' },
+  { id: 'm1', name: 'Marcus Johnson', email: 'marcus.j@email.com', role: 'player' },
+  { id: 'm2', name: 'Tyler Rodriguez', email: 'tyler.r@email.com', role: 'player' },
+  { id: 'm3', name: 'Jayden Williams', email: 'jayden.w@email.com', role: 'player' },
+  { id: 'm4', name: 'Sarah Johnson', email: 'sarah.johnson@email.com', role: 'parent' },
+  { id: 'm5', name: 'Michael Rodriguez', email: 'michael.r@email.com', role: 'parent' },
+  { id: 'm6', name: 'Coach Thompson', email: 'thompson@email.com', role: 'coach' },
 ];
 
 const INITIAL_MESSAGES: ChatMessage[] = [
@@ -216,10 +216,11 @@ export default function ChatScreen() {
     }, 100);
   }, [inputText, user?.fullName]);
 
-  const addMember = useCallback((name: string, role: ChatMember['role']) => {
+  const addMember = useCallback((name: string, role: ChatMember['role'], email: string) => {
     const newMember: ChatMember = {
       id: `member_${Date.now()}`,
       name,
+      email,
       role,
     };
     setMembers((prev) => [...prev, newMember]);
@@ -229,7 +230,7 @@ export default function ChatScreen() {
       senderId: 'system',
       senderName: 'System',
       senderRole: 'coach',
-      text: `${name} was added to the group as a ${role}.`,
+      text: `${name} (${email}) was added as a ${role.charAt(0).toUpperCase() + role.slice(1)}.`,
       timestamp: Date.now(),
     };
     setChatMessages((prev) => [...prev, systemMsg]);

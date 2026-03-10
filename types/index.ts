@@ -135,6 +135,7 @@ export interface Fan {
 export interface ChatMember {
   id: string;
   name: string;
+  email?: string;
   role: 'coach' | 'player' | 'parent';
   avatar?: string;
 }

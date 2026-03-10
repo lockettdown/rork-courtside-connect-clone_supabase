@@ -11,7 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { X, UserPlus, Trash2, Shield, Users, ChevronDown } from 'lucide-react-native';
+import { X, UserPlus, Trash2, Shield, Users, ChevronDown, Mail, User } from 'lucide-react-native';
 import { theme } from '@/constants/theme';
 import { ChatMember } from '@/types';
 
@@ -19,7 +19,7 @@ interface ManageMembersModalProps {
   visible: boolean;
   onClose: () => void;
   members: ChatMember[];
-  onAddMember: (name: string, role: ChatMember['role']) => void;
+  onAddMember: (name: string, role: ChatMember['role'], email: string) => void;
   onRemoveMember: (id: string) => void;
 }
 
@@ -43,17 +43,37 @@ export default function ManageMembersModal({
   onRemoveMember,
 }: ManageMembersModalProps) {
   const [newName, setNewName] = useState<string>('');
+  const [newEmail, setNewEmail] = useState<string>('');
   const [selectedRole, setSelectedRole] = useState<ChatMember['role']>('player');
   const [showRolePicker, setShowRolePicker] = useState<boolean>(false);
 
+  const isValidEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
   const handleAdd = () => {
-    const trimmed = newName.trim();
-    if (!trimmed) {
-      Alert.alert('Error', 'Please enter a name.');
+    const trimmedName = newName.trim();
+    const trimmedEmail = newEmail.trim().toLowerCase();
+    if (!trimmedEmail) {
+      Alert.alert('Email Required', 'Please enter an email address.');
       return;
     }
-    onAddMember(trimmed, selectedRole);
+    if (!isValidEmail(trimmedEmail)) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      return;
+    }
+    if (!trimmedName) {
+      Alert.alert('Name Required', 'Please enter a name.');
+      return;
+    }
+    const alreadyExists = members.some(m => m.email?.toLowerCase() === trimmedEmail);
+    if (alreadyExists) {
+      Alert.alert('Already Added', 'A member with this email is already in the group.');
+      return;
+    }
+    onAddMember(trimmedName, selectedRole, trimmedEmail);
     setNewName('');
+    setNewEmail('');
   };
 
   const handleRemove = (member: ChatMember) => {
@@ -86,6 +106,9 @@ export default function ManageMembersModal({
       </View>
       <View style={styles.memberInfo}>
         <Text style={styles.memberName}>{item.name}</Text>
+        {item.email ? (
+          <Text style={styles.memberEmail} numberOfLines={1}>{item.email}</Text>
+        ) : null}
         <View style={styles.roleTagRow}>
           <View style={[styles.roleTag, { backgroundColor: ROLE_COLORS[item.role] + '20' }]}>
             <Text style={[styles.roleTagText, { color: ROLE_COLORS[item.role] }]}>
@@ -151,17 +174,41 @@ export default function ManageMembersModal({
           </View>
 
           <View style={styles.addSection}>
-            <Text style={styles.addLabel}>Add Member</Text>
-            <View style={styles.addRow}>
-              <TextInput
-                style={styles.addInput}
-                placeholder="Enter name..."
-                placeholderTextColor={theme.colors.textSecondary}
-                value={newName}
-                onChangeText={setNewName}
-                returnKeyType="done"
-                onSubmitEditing={handleAdd}
-              />
+            <Text style={styles.addLabel}>Invite Member</Text>
+            <View style={styles.addCard}>
+              <View style={styles.inputRow}>
+                <View style={styles.inputIcon}>
+                  <Mail size={16} color={theme.colors.textSecondary} />
+                </View>
+                <TextInput
+                  style={styles.addInputField}
+                  placeholder="Email address"
+                  placeholderTextColor={theme.colors.textSecondary}
+                  value={newEmail}
+                  onChangeText={setNewEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="next"
+                />
+              </View>
+              <View style={styles.inputDivider} />
+              <View style={styles.inputRow}>
+                <View style={styles.inputIcon}>
+                  <User size={16} color={theme.colors.textSecondary} />
+                </View>
+                <TextInput
+                  style={styles.addInputField}
+                  placeholder="Full name"
+                  placeholderTextColor={theme.colors.textSecondary}
+                  value={newName}
+                  onChangeText={setNewName}
+                  returnKeyType="done"
+                  onSubmitEditing={handleAdd}
+                />
+              </View>
+            </View>
+            <View style={styles.addActionRow}>
               <TouchableOpacity
                 style={styles.rolePicker}
                 onPress={() => setShowRolePicker(!showRolePicker)}
@@ -171,8 +218,15 @@ export default function ManageMembersModal({
                 </Text>
                 <ChevronDown size={14} color={ROLE_COLORS[selectedRole]} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.addBtn} onPress={handleAdd}>
-                <UserPlus size={18} color="#FFF" />
+              <TouchableOpacity
+                style={[
+                  styles.addBtn,
+                  (!newEmail.trim() || !newName.trim()) && styles.addBtnDisabled,
+                ]}
+                onPress={handleAdd}
+              >
+                <UserPlus size={16} color="#FFF" />
+                <Text style={styles.addBtnText}>Add</Text>
               </TouchableOpacity>
             </View>
             {showRolePicker && (
@@ -292,19 +346,37 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase' as const,
     letterSpacing: 0.5,
   },
-  addRow: {
+  addCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
-  addInput: {
+  inputIcon: {
+    width: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inputDivider: {
+    height: 1,
+    backgroundColor: theme.colors.background,
+    marginLeft: 44,
+  },
+  addInputField: {
     flex: 1,
-    backgroundColor: theme.colors.surface,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 14,
+    paddingRight: 14,
     fontSize: 15,
     color: theme.colors.text,
+  },
+  addActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
   },
   rolePicker: {
     flexDirection: 'row',
@@ -343,12 +415,22 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
   },
   addBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: theme.colors.primary,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 18,
     justifyContent: 'center',
+  },
+  addBtnDisabled: {
+    opacity: 0.5,
+  },
+  addBtnText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#FFF',
   },
   memberList: {
     flex: 1,
@@ -382,6 +464,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600' as const,
     color: theme.colors.text,
+    marginBottom: 2,
+  },
+  memberEmail: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
     marginBottom: 4,
   },
   roleTagRow: {
