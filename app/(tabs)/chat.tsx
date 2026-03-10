@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Send,
   Users,
-  Settings,
+  UserPlus,
   ArrowLeft,
   ChevronRight,
 } from 'lucide-react-native';
@@ -418,7 +418,7 @@ export default function ChatScreen() {
             onPress={() => setShowManageModal(true)}
             testID="manage-members-btn"
           >
-            <Settings size={20} color={theme.colors.textSecondary} />
+            <UserPlus size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
