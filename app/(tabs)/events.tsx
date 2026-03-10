@@ -5,6 +5,7 @@ import { theme } from '@/constants/theme';
 import EventDetailModal from '@/components/EventDetailModal';
 import AddEventModal from '@/components/AddEventModal';
 import { useState } from 'react';
+import uuid from 'react-native-uuid';
 import { Event } from '@/types';
 import { Plus } from 'lucide-react-native';
 
@@ -79,7 +80,7 @@ export default function EventsScreen() {
     opponent?: string;
   }) => {
     const newEvent: Event = {
-      id: Date.now().toString(),
+      id: uuid.v4() as string,
       ...eventData,
     };
     addEvent(newEvent);

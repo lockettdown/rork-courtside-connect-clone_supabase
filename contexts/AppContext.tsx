@@ -5,6 +5,57 @@ import { Event, Fan, Game, Message, Play, Player, Team, User } from '@/types';
 import { MOCK_MESSAGES } from '@/constants/mockData';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { Session } from '@supabase/supabase-js';
+import uuid from 'react-native-uuid';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const ensureUuid = (value?: string): string => {
+  if (value && UUID_REGEX.test(value)) {
+    return value;
+  }
+
+  return uuid.v4() as string;
+};
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  if (error && typeof error === 'object') {
+    const errorRecord = error as Record<string, unknown>;
+    const message = errorRecord.message;
+    const details = errorRecord.details;
+    const hint = errorRecord.hint;
+
+    if (typeof message === 'string' && message.trim().length > 0) {
+      const extraParts = [details, hint].filter((part): part is string => typeof part === 'string' && part.trim().length > 0);
+      return extraParts.length > 0 ? `${message} (${extraParts.join(' • ')})` : message;
+    }
+
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return fallback;
+    }
+  }
+
+  return fallback;
+};
+
+const formatEventCreationError = (error: unknown): string => {
+  const message = getErrorMessage(error, 'Unable to add event. Please try again.');
+
+  if (message.includes('invalid input syntax for type uuid')) {
+    return 'Unable to add event because the event ID was invalid. Please try again.';
+  }
+
+  return message;
+};
 
 export const [AppProvider, useApp] = createContextHook(() => {
   const queryClient = useQueryClient();
@@ -68,7 +119,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
       }
     };
 
-    initAuth();
+    void initAuth();
 
     try {
       const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {
@@ -81,12 +132,12 @@ export const [AppProvider, useApp] = createContextHook(() => {
             email: newSession.user.email || '',
             role: 'coach',
           });
-          queryClient.invalidateQueries({ queryKey: ['teams'] });
-          queryClient.invalidateQueries({ queryKey: ['players'] });
-          queryClient.invalidateQueries({ queryKey: ['events'] });
-          queryClient.invalidateQueries({ queryKey: ['games'] });
-          queryClient.invalidateQueries({ queryKey: ['plays'] });
-          queryClient.invalidateQueries({ queryKey: ['fans'] });
+          void queryClient.invalidateQueries({ queryKey: ['teams'] });
+          void queryClient.invalidateQueries({ queryKey: ['players'] });
+          void queryClient.invalidateQueries({ queryKey: ['events'] });
+          void queryClient.invalidateQueries({ queryKey: ['games'] });
+          void queryClient.invalidateQueries({ queryKey: ['plays'] });
+          void queryClient.invalidateQueries({ queryKey: ['fans'] });
         } else {
           setUser(null);
         }
@@ -326,12 +377,12 @@ export const [AppProvider, useApp] = createContextHook(() => {
     retry: false,
   });
 
-  const teams = teamsQuery.data || [];
-  const players = playersQuery.data || [];
-  const events = eventsQuery.data || [];
-  const games = gamesQuery.data || [];
-  const plays = playsQuery.data || [];
-  const fans = fansQuery.data || [];
+  const teams = useMemo<Team[]>(() => teamsQuery.data ?? [], [teamsQuery.data]);
+  const players = useMemo<Player[]>(() => playersQuery.data ?? [], [playersQuery.data]);
+  const events = useMemo<Event[]>(() => eventsQuery.data ?? [], [eventsQuery.data]);
+  const games = useMemo<Game[]>(() => gamesQuery.data ?? [], [gamesQuery.data]);
+  const plays = useMemo<Play[]>(() => playsQuery.data ?? [], [playsQuery.data]);
+  const fans = useMemo<Fan[]>(() => fansQuery.data ?? [], [fansQuery.data]);
 
   useEffect(() => {
     if (teams.length > 0 && !selectedTeamId) {
@@ -404,7 +455,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['teams'] });
+      void queryClient.invalidateQueries({ queryKey: ['teams'] });
     },
     onError: (error: Error) => {
       console.error('Error adding team:', error.message);
@@ -414,7 +465,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
   const addTeam = useCallback(async (team: Team) => {
     return addTeamMutation.mutateAsync(team);
-  }, [addTeamMutation.mutateAsync]);
+  }, [addTeamMutation]);
 
   const addPlayerMutation = useMutation({
     mutationFn: async (player: Player) => {
@@ -455,8 +506,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['players'] });
-      queryClient.invalidateQueries({ queryKey: ['teams'] });
+      void queryClient.invalidateQueries({ queryKey: ['players'] });
+      void queryClient.invalidateQueries({ queryKey: ['teams'] });
     },
     onError: (error: Error) => {
       console.error('Error adding player:', error.message);
@@ -466,7 +517,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
   const addPlayer = useCallback(async (player: Player) => {
     return addPlayerMutation.mutateAsync(player);
-  }, [addPlayerMutation.mutateAsync]);
+  }, [addPlayerMutation]);
 
   const updatePlayerMutation = useMutation({
     mutationFn: async (updatedPlayer: Player) => {
@@ -553,7 +604,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['players'] });
+      void queryClient.invalidateQueries({ queryKey: ['players'] });
     },
     onError: (error: Error) => {
       console.error('Error in updatePlayerMutation:', error.message);
@@ -563,49 +614,58 @@ export const [AppProvider, useApp] = createContextHook(() => {
   const updatePlayer = useCallback(async (updatedPlayer: Player) => {
     console.log('Updating player:', updatedPlayer.id, updatedPlayer.name);
     return updatePlayerMutation.mutateAsync(updatedPlayer);
-  }, [updatePlayerMutation.mutateAsync]);
+  }, [updatePlayerMutation]);
 
   const addEventMutation = useMutation({
     mutationFn: async (event: Event) => {
       if (!user?.id) throw new Error('Not authenticated');
       if (!isSupabaseConfigured) throw new Error('Database not configured');
-      console.log('Adding event:', event);
+
+      const eventId = ensureUuid(event.id);
+      const eventPayload = {
+        id: eventId,
+        user_id: user.id,
+        team_id: event.teamId,
+        type: event.type,
+        title: event.title,
+        opponent: event.opponent || null,
+        team_name: event.teamName,
+        date: event.date,
+        time: event.time,
+        location: event.location,
+        is_home: event.isHome !== undefined ? event.isHome : true,
+      };
+
+      console.log('Adding event:', { ...event, id: eventId });
+      console.log('Adding event payload:', eventPayload);
+
       const { data, error } = await supabase
         .from('events')
-        .insert([{
-          id: event.id,
-          user_id: user.id,
-          team_id: event.teamId,
-          type: event.type,
-          title: event.title,
-          opponent: event.opponent || null,
-          team_name: event.teamName,
-          date: event.date,
-          time: event.time,
-          location: event.location,
-          is_home: event.isHome !== undefined ? event.isHome : true,
-        }])
+        .insert([eventPayload])
         .select()
         .single();
+
       if (error) {
-        console.error('Error adding event:', error);
-        throw new Error(`Failed to add event: ${error.message}`);
+        console.error('Error adding event:', JSON.stringify(error, null, 2));
+        throw new Error(formatEventCreationError(error));
       }
+
       console.log('Event added successfully:', data);
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['events'] });
+      void queryClient.invalidateQueries({ queryKey: ['events'] });
     },
     onError: (error: Error) => {
-      console.error('Error adding event:', error.message);
-      alert(`Error adding event: ${error.message}`);
+      const errorMessage = formatEventCreationError(error);
+      console.error('Error adding event:', errorMessage);
+      alert(`Error adding event: ${errorMessage}`);
     },
   });
 
   const addEvent = useCallback((event: Event) => {
     addEventMutation.mutate(event);
-  }, [addEventMutation.mutate]);
+  }, [addEventMutation]);
 
   const updateEventMutation = useMutation({
     mutationFn: async (updatedEvent: Event) => {
@@ -682,13 +742,13 @@ export const [AppProvider, useApp] = createContextHook(() => {
       alert(`Error updating event: ${error.message}`);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['events'] });
+      void queryClient.invalidateQueries({ queryKey: ['events'] });
     },
   });
 
   const updateEvent = useCallback((updatedEvent: Event) => {
     updateEventMutation.mutate(updatedEvent);
-  }, [updateEventMutation.mutate]);
+  }, [updateEventMutation]);
 
   const addGameMutation = useMutation({
     mutationFn: async (game: Game) => {
@@ -716,13 +776,13 @@ export const [AppProvider, useApp] = createContextHook(() => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['games'] });
+      void queryClient.invalidateQueries({ queryKey: ['games'] });
     },
   });
 
   const addGame = useCallback((game: Game) => {
     addGameMutation.mutate(game);
-  }, [addGameMutation.mutate]);
+  }, [addGameMutation]);
 
   const updateGameMutation = useMutation({
     mutationFn: async ({ gameId, updates }: { gameId: string; updates: Partial<Game> }) => {
@@ -748,14 +808,14 @@ export const [AppProvider, useApp] = createContextHook(() => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['games'] });
-      queryClient.invalidateQueries({ queryKey: ['players'] });
+      void queryClient.invalidateQueries({ queryKey: ['games'] });
+      void queryClient.invalidateQueries({ queryKey: ['players'] });
     },
   });
 
   const updateGame = useCallback((gameId: string, updates: Partial<Game>) => {
     updateGameMutation.mutate({ gameId, updates });
-  }, [updateGameMutation.mutate]);
+  }, [updateGameMutation]);
 
   const addPlayMutation = useMutation({
     mutationFn: async (play: Play) => {
@@ -775,13 +835,13 @@ export const [AppProvider, useApp] = createContextHook(() => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['plays'] });
+      void queryClient.invalidateQueries({ queryKey: ['plays'] });
     },
   });
 
   const addPlay = useCallback((play: Play) => {
     addPlayMutation.mutate(play);
-  }, [addPlayMutation.mutate]);
+  }, [addPlayMutation]);
 
   const deletePlayMutation = useMutation({
     mutationFn: async (playId: string) => {
@@ -795,13 +855,13 @@ export const [AppProvider, useApp] = createContextHook(() => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['plays'] });
+      void queryClient.invalidateQueries({ queryKey: ['plays'] });
     },
   });
 
   const deletePlay = useCallback((playId: string) => {
     deletePlayMutation.mutate(playId);
-  }, [deletePlayMutation.mutate]);
+  }, [deletePlayMutation]);
 
   const addFanMutation = useMutation({
     mutationFn: async (fan: Fan) => {
@@ -826,13 +886,13 @@ export const [AppProvider, useApp] = createContextHook(() => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['fans'] });
+      void queryClient.invalidateQueries({ queryKey: ['fans'] });
     },
   });
 
   const addFan = useCallback((fan: Fan) => {
     addFanMutation.mutate(fan);
-  }, [addFanMutation.mutate]);
+  }, [addFanMutation]);
 
   const updateFanMutation = useMutation({
     mutationFn: async (updatedFan: Fan) => {
@@ -856,13 +916,13 @@ export const [AppProvider, useApp] = createContextHook(() => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['fans'] });
+      void queryClient.invalidateQueries({ queryKey: ['fans'] });
     },
   });
 
   const updateFan = useCallback((updatedFan: Fan) => {
     updateFanMutation.mutate(updatedFan);
-  }, [updateFanMutation.mutate]);
+  }, [updateFanMutation]);
 
   const deleteEventMutation = useMutation({
     mutationFn: async (eventId: string) => {
@@ -876,13 +936,13 @@ export const [AppProvider, useApp] = createContextHook(() => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['events'] });
+      void queryClient.invalidateQueries({ queryKey: ['events'] });
     },
   });
 
   const deleteEvent = useCallback((eventId: string) => {
     return deleteEventMutation.mutateAsync(eventId);
-  }, [deleteEventMutation.mutateAsync]);
+  }, [deleteEventMutation]);
 
   const deleteFanMutation = useMutation({
     mutationFn: async (fanId: string) => {
@@ -896,13 +956,13 @@ export const [AppProvider, useApp] = createContextHook(() => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['fans'] });
+      void queryClient.invalidateQueries({ queryKey: ['fans'] });
     },
   });
 
   const deleteFan = useCallback((fanId: string) => {
     deleteFanMutation.mutate(fanId);
-  }, [deleteFanMutation.mutate]);
+  }, [deleteFanMutation]);
 
   const updateTeamMutation = useMutation({
     mutationFn: async (updatedTeam: Team) => {
@@ -930,7 +990,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['teams'] });
+      void queryClient.invalidateQueries({ queryKey: ['teams'] });
     },
     onError: (error: Error) => {
       console.error('Error updating team:', error.message);
@@ -939,7 +999,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
   const updateTeam = useCallback(async (updatedTeam: Team) => {
     return updateTeamMutation.mutateAsync(updatedTeam);
-  }, [updateTeamMutation.mutateAsync]);
+  }, [updateTeamMutation]);
 
   const deleteTeamMutation = useMutation({
     mutationFn: async (teamId: string) => {
@@ -958,17 +1018,16 @@ export const [AppProvider, useApp] = createContextHook(() => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['teams'] });
-      queryClient.invalidateQueries({ queryKey: ['players'] });
-      queryClient.invalidateQueries({ queryKey: ['events'] });
-      queryClient.invalidateQueries({ queryKey: ['fans'] });
+      void queryClient.invalidateQueries({ queryKey: ['teams'] });
+      void queryClient.invalidateQueries({ queryKey: ['players'] });
+      void queryClient.invalidateQueries({ queryKey: ['events'] });
+      void queryClient.invalidateQueries({ queryKey: ['fans'] });
     },
   });
 
   const deleteTeam = useCallback((teamId: string) => {
     return deleteTeamMutation.mutateAsync(teamId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deleteTeamMutation.mutateAsync]);
+  }, [deleteTeamMutation]);
 
   return useMemo(() => ({
     user,
