@@ -32,10 +32,31 @@ export default function TeamScreen() {
   const team = teams.find((t) => t.id === teamId);
   const teamPlayers = players.filter((p) => p.teamId === teamId);
   const { events } = useApp();
+  const parseEventDateTime = (dateStr: string, timeStr: string): Date => {
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      const [month, day, year] = parts;
+      const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      const timeMatch = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+      if (timeMatch) {
+        let hours = parseInt(timeMatch[1], 10);
+        const minutes = timeMatch[2];
+        const ampm = timeMatch[3].toUpperCase();
+        if (ampm === 'PM' && hours !== 12) hours += 12;
+        if (ampm === 'AM' && hours === 12) hours = 0;
+        return new Date(`${isoDate}T${hours.toString().padStart(2, '0')}:${minutes}:00`);
+      }
+      return new Date(`${isoDate}T00:00:00`);
+    }
+    const direct = new Date(dateStr + 'T' + timeStr);
+    if (!isNaN(direct.getTime())) return direct;
+    return new Date(dateStr);
+  };
+
   const teamEvents = events.filter((e) => e.teamId === teamId).sort((a, b) => {
-    const dateA = new Date(a.date + ' ' + a.time);
-    const dateB = new Date(b.date + ' ' + b.time);
-    return dateB.getTime() - dateA.getTime();
+    const dateA = parseEventDateTime(a.date, a.time);
+    const dateB = parseEventDateTime(b.date, b.time);
+    return dateA.getTime() - dateB.getTime();
   });
   const teamFans = fans.filter((f) => f.teamId === teamId);
 
