@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RotateCcw, UserPlus, ChevronLeft, Users, Dribbble, Trophy, ChevronDown, RefreshCw, User, Hand, Ban, Repeat, AlertTriangle } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -35,6 +35,8 @@ export default function ScoreScreen() {
     additionalStats?: Partial<PlayerGameStats>;
   } | null>(null);
   const [temporaryPlayers, setTemporaryPlayers] = useState<Player[]>([]);
+  const [pendingTeam, setPendingTeam] = useState<Team | null>(null);
+  const [pendingOpponentName, setPendingOpponentName] = useState<string>('');
   const [gameSummaryVisible, setGameSummaryVisible] = useState<boolean>(false);
   const [endingGame, setEndingGame] = useState<boolean>(false);
   const [showTwoPointModal, setShowTwoPointModal] = useState<boolean>(false);
@@ -73,6 +75,13 @@ export default function ScoreScreen() {
   }, [params.teamId, params.opponent, teams, gameStarted, players]);
 
   const handleSelectTeam = (team: Team) => {
+    setPendingTeam(team);
+    setPendingOpponentName('');
+    console.log('Selected team, awaiting opponent name:', team.name);
+  };
+
+  const handleStartGame = () => {
+    if (!pendingTeam) return;
     const generateUUID = () => {
       return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
         const r = Math.random() * 16 | 0;
@@ -80,17 +89,19 @@ export default function ScoreScreen() {
         return v.toString(16);
       });
     };
-    setSelectedTeam(team);
-    setHomeTeamId(team.id);
+    setSelectedTeam(pendingTeam);
+    setHomeTeamId(pendingTeam.id);
     setAwayTeamId(`temp-opponent-${generateUUID()}`);
-    setOpponentName('');
+    setOpponentName(pendingOpponentName.trim() || 'Opponent');
     setGameStarted(true);
     setOnCourt([]);
     setGameStats({});
     setHomeScore(0);
     setAwayScore(0);
     setQuarter(1);
-    console.log('Starting game with team:', team.name);
+    setPendingTeam(null);
+    setPendingOpponentName('');
+    console.log('Starting game with team:', pendingTeam.name, 'vs', pendingOpponentName.trim() || 'Opponent');
   };
 
   const handleBackToTeamSelect = () => {
@@ -101,6 +112,8 @@ export default function ScoreScreen() {
     setGameSummaryVisible(false);
     setSelectedPlayerId(null);
     setStatsFinalized(false);
+    setPendingTeam(null);
+    setPendingOpponentName('');
   };
 
   const handleEndGame = async () => {
@@ -537,7 +550,7 @@ export default function ScoreScreen() {
     return labels[quarter - 1] || `Q${quarter}`;
   };
 
-  if (!gameStarted) {
+  if (!gameStarted && !pendingTeam) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.teamSelectHeader}>
@@ -598,6 +611,69 @@ export default function ScoreScreen() {
     );
   }
 
+  if (!gameStarted && pendingTeam) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => { setPendingTeam(null); setPendingOpponentName(''); }}
+            activeOpacity={0.7}
+          >
+            <ChevronLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Game Setup</Text>
+          <View style={{ width: 40 }} />
+        </View>
+
+        <ScrollView
+          style={styles.teamSelectScroll}
+          contentContainerStyle={styles.teamSelectContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.opponentSetupCard}>
+            <View style={styles.opponentSetupTeamRow}>
+              <View style={styles.teamSelectIcon}>
+                <Dribbble size={24} color="#FFFFFF" />
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.opponentSetupTeamLabel}>YOUR TEAM</Text>
+                <Text style={styles.opponentSetupTeamName}>{pendingTeam.name}</Text>
+              </View>
+            </View>
+
+            <View style={styles.opponentSetupDivider}>
+              <View style={styles.opponentSetupDividerLine} />
+              <Text style={styles.opponentSetupVs}>VS</Text>
+              <View style={styles.opponentSetupDividerLine} />
+            </View>
+
+            <Text style={styles.opponentSetupLabel}>OPPONENT NAME</Text>
+            <TextInput
+              style={styles.opponentSetupInput}
+              placeholder="Enter opponent team name"
+              placeholderTextColor="#555"
+              value={pendingOpponentName}
+              onChangeText={setPendingOpponentName}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={handleStartGame}
+            />
+          </View>
+
+          <TouchableOpacity
+            style={styles.startGameButton}
+            onPress={handleStartGame}
+            activeOpacity={0.7}
+          >
+            <Trophy size={20} color="#FFFFFF" />
+            <Text style={styles.startGameButtonText}>Start Game</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
@@ -635,7 +711,7 @@ export default function ScoreScreen() {
             </TouchableOpacity>
             <View style={styles.scoreDisplay}>
               <Text style={styles.scoreValue}>{homeScore}</Text>
-              <Text style={styles.scoreLabel}>HOME</Text>
+              <Text style={styles.scoreLabel} numberOfLines={1}>{selectedTeam?.name || 'HOME'}</Text>
             </View>
             <TouchableOpacity 
               style={styles.scoreAdjustButton}
@@ -663,7 +739,7 @@ export default function ScoreScreen() {
             </TouchableOpacity>
             <View style={styles.scoreDisplay}>
               <Text style={styles.scoreValue}>{awayScore}</Text>
-              <Text style={styles.scoreLabel}>OPP</Text>
+              <Text style={styles.scoreLabel} numberOfLines={1}>{opponentName || 'OPP'}</Text>
             </View>
             <TouchableOpacity 
               style={styles.scoreAdjustButton}
@@ -1410,6 +1486,79 @@ const styles = StyleSheet.create({
     color: '#888',
     textAlign: 'center' as const,
   },
+  opponentSetupCard: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+  },
+  opponentSetupTeamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  opponentSetupTeamLabel: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    color: '#888',
+    letterSpacing: 1,
+  },
+  opponentSetupTeamName: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+  opponentSetupDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    gap: 12,
+  },
+  opponentSetupDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#333',
+  },
+  opponentSetupVs: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: '#ff6900',
+  },
+  opponentSetupLabel: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    color: '#888',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  opponentSetupInput: {
+    backgroundColor: '#252525',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  startGameButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#ff6900',
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  startGameButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#FFFFFF',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1483,10 +1632,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   scoreLabel: {
-    fontSize: 11,
-    fontWeight: '500' as const,
+    fontSize: 10,
+    fontWeight: '600' as const,
     color: '#888',
     marginTop: 2,
+    maxWidth: 60,
+    textAlign: 'center' as const,
   },
   quarterSelector: {
     flexDirection: 'row',
