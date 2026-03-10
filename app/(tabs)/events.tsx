@@ -29,7 +29,7 @@ export default function EventsScreen() {
   };
 
   const filteredEvents = events.filter((event) => {
-    const eventDate = new Date(event.date);
+    const eventDate = new Date(event.date + 'T00:00:00');
     eventDate.setHours(0, 0, 0, 0);
 
     if (filter === 'today') {
@@ -39,13 +39,13 @@ export default function EventsScreen() {
     }
     return true;
   }).sort((a, b) => {
-    const dateA = new Date(a.date + ' ' + a.time);
-    const dateB = new Date(b.date + ' ' + b.time);
+    const dateA = new Date(a.date + 'T' + a.time);
+    const dateB = new Date(b.date + 'T' + b.time);
     return dateA.getTime() - dateB.getTime();
   });
 
   const groupedEvents = filteredEvents.reduce((acc, event) => {
-    const date = new Date(event.date);
+    const date = new Date(event.date + 'T00:00:00');
     const dateKey = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
     if (!acc[dateKey]) {
       acc[dateKey] = [];
@@ -55,7 +55,8 @@ export default function EventsScreen() {
   }, {} as Record<string, typeof events>);
 
   const formatTime = (timeStr: string) => {
-    const date = new Date('2000-01-01 ' + timeStr);
+    const date = new Date('2000-01-01T' + timeStr);
+    if (isNaN(date.getTime())) return timeStr;
     return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   };
 

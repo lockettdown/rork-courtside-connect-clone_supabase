@@ -24,12 +24,17 @@ export default function HomeScreen() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [showEventDetailModal, setShowEventDetailModal] = useState<boolean>(false);
 
+  const parseDateTime = (dateStr: string, timeStr: string) => {
+    return new Date(dateStr + 'T' + timeStr);
+  };
+
   const upcomingEvents = (events || [])
-    .sort((a, b) => new Date(a.date + ' ' + a.time).getTime() - new Date(b.date + ' ' + b.time).getTime())
+    .sort((a, b) => parseDateTime(a.date, a.time).getTime() - parseDateTime(b.date, b.time).getTime())
     .slice(0, 3);
 
   const formatDate = (dateStr: string, timeStr: string) => {
-    const date = new Date(dateStr + ' ' + timeStr);
+    const date = parseDateTime(dateStr, timeStr);
+    if (isNaN(date.getTime())) return 'Unknown Date';
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ' · ' + 
            date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   };
