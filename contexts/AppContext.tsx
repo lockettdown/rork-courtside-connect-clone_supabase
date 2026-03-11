@@ -685,9 +685,14 @@ export const [AppProvider, useApp] = createContextHook(() => {
     mutationFn: async (updatedEvent: Event) => {
       if (!user?.id) throw new Error('Not authenticated');
       if (!isSupabaseConfigured) throw new Error('Database not configured');
-      console.log('Updating event in database:', updatedEvent.id, { date: updatedEvent.date, time: updatedEvent.time });
+      console.log('Updating event in database:', updatedEvent.id, {
+        date: updatedEvent.date,
+        time: updatedEvent.time,
+        title: updatedEvent.title,
+        opponent: updatedEvent.opponent,
+      });
 
-      const fullUpdateData: Record<string, unknown> = {
+      const updateData: Record<string, unknown> = {
         type: updatedEvent.type,
         title: updatedEvent.title,
         opponent: updatedEvent.opponent || null,
@@ -697,47 +702,26 @@ export const [AppProvider, useApp] = createContextHook(() => {
         time: updatedEvent.time,
         location: updatedEvent.location,
         is_home: updatedEvent.isHome,
-        game_result: updatedEvent.gameResult || null,
         updated_at: new Date().toISOString(),
       };
 
-      const coreUpdateData: Record<string, unknown> = {
-        type: updatedEvent.type,
-        title: updatedEvent.title,
-        opponent: updatedEvent.opponent || null,
-        team_id: updatedEvent.teamId,
-        team_name: updatedEvent.teamName,
-        date: updatedEvent.date,
-        time: updatedEvent.time,
-        location: updatedEvent.location,
-        is_home: updatedEvent.isHome,
-      };
+      console.log('Event update payload:', JSON.stringify(updateData));
 
-      let result = await supabase
+      const { data, error } = await supabase
         .from('events')
-        .update(fullUpdateData)
+        .update(updateData)
         .eq('id', updatedEvent.id)
         .eq('user_id', user.id)
         .select()
         .single();
 
-      if (result.error) {
-        console.log('Full update failed, retrying with core fields only:', result.error.message, result.error.code);
-        result = await supabase
-          .from('events')
-          .update(coreUpdateData)
-          .eq('id', updatedEvent.id)
-          .eq('user_id', user.id)
-          .select()
-          .single();
+      if (error) {
+        console.error('Error updating event:', JSON.stringify(error, null, 2));
+        throw new Error(`Failed to update event: ${error.message}`);
       }
 
-      if (result.error) {
-        console.error('Error updating event:', JSON.stringify(result.error, null, 2));
-        throw result.error;
-      }
-      console.log('Event updated successfully:', result.data);
-      return result.data;
+      console.log('Event updated successfully:', data);
+      return data;
     },
     onMutate: async (updatedEvent: Event) => {
       await queryClient.cancelQueries({ queryKey: ['events', user?.id] });
