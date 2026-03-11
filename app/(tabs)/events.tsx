@@ -100,8 +100,10 @@ export default function EventsScreen() {
   };
 
   const handleUpdateEvent = async (updatedEvent: Event): Promise<Event> => {
+    console.log('handleUpdateEvent called - date:', updatedEvent.date, 'time:', updatedEvent.time);
     const savedEvent = await updateEvent(updatedEvent);
-    setSelectedEvent(savedEvent);
+    console.log('handleUpdateEvent resolved - saved date:', savedEvent.date, 'saved time:', savedEvent.time);
+    setSelectedEvent({ ...savedEvent });
     return savedEvent;
   };
 

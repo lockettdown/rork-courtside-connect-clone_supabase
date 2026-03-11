@@ -83,22 +83,24 @@ export default function EventDetailModal({
       isHome,
     };
 
+    console.log('EventDetailModal handleSave - updatedEvent date:', updatedEvent.date, 'time:', updatedEvent.time);
+
     setIsSaving(true);
     try {
       const savedEvent = await onUpdate(updatedEvent);
-      if (savedEvent) {
-        setEventType(savedEvent.type);
-        setTitle(savedEvent.title);
-        setSelectedTeamId(savedEvent.teamId);
-        setDate(savedEvent.date);
-        setTime(savedEvent.time);
-        setLocation(savedEvent.location);
-        setOpponent(savedEvent.opponent || '');
-        setIsHome(savedEvent.isHome || false);
-      }
+      const finalEvent = savedEvent || updatedEvent;
+      console.log('EventDetailModal handleSave - finalEvent date:', finalEvent.date, 'time:', finalEvent.time);
+      setEventType(finalEvent.type);
+      setTitle(finalEvent.title);
+      setSelectedTeamId(finalEvent.teamId);
+      setDate(finalEvent.date);
+      setTime(finalEvent.time);
+      setLocation(finalEvent.location);
+      setOpponent(finalEvent.opponent || '');
+      setIsHome(finalEvent.isHome || false);
       setIsEditing(false);
     } catch (error) {
-      console.error('Error saving event changes:', error);
+      console.error('EventDetailModal handleSave ERROR:', error);
       Alert.alert('Save failed', error instanceof Error ? error.message : 'Unable to save event changes. Please try again.');
     } finally {
       setIsSaving(false);

@@ -53,10 +53,6 @@ const buildEventUpdatePayload = (updatedEvent: Event) => {
     updated_at: new Date().toISOString(),
   };
 
-  if (updatedEvent.gameResult !== undefined) {
-    payload.game_result = updatedEvent.gameResult;
-  }
-
   return payload;
 };
 import { MOCK_MESSAGES } from '@/constants/mockData';
@@ -730,17 +726,13 @@ export const [AppProvider, useApp] = createContextHook(() => {
     mutationFn: async (updatedEvent: Event) => {
       if (!user?.id) throw new Error('Not authenticated');
       if (!isSupabaseConfigured) throw new Error('Database not configured');
-      console.log('Updating event in database:', updatedEvent.id, {
-        date: updatedEvent.date,
-        time: updatedEvent.time,
-        title: updatedEvent.title,
-        opponent: updatedEvent.opponent,
-      });
+      console.log('updateEventMutation START - event id:', updatedEvent.id);
+      console.log('updateEventMutation - new date:', updatedEvent.date, 'new time:', updatedEvent.time);
 
       const updatePayload = buildEventUpdatePayload(updatedEvent);
-      console.log('Event update payload:', JSON.stringify(updatePayload));
+      console.log('updateEventMutation - payload:', JSON.stringify(updatePayload));
 
-      let response = await supabase
+      const { data, error } = await supabase
         .from('events')
         .update(updatePayload)
         .eq('id', updatedEvent.id)
@@ -748,31 +740,21 @@ export const [AppProvider, useApp] = createContextHook(() => {
         .select()
         .single();
 
-      if (response.error) {
-        console.log('First update attempt failed:', response.error.message);
-        const { game_result: _removed, ...payloadWithoutGameResult } = updatePayload;
-        console.log('Retrying without game_result column:', JSON.stringify(payloadWithoutGameResult));
-        response = await supabase
-          .from('events')
-          .update(payloadWithoutGameResult)
-          .eq('id', updatedEvent.id)
-          .eq('user_id', user.id)
-          .select()
-          .single();
-      }
-
-      if (response.error) {
-        console.error('Error updating event:', JSON.stringify(response.error, null, 2));
-        const errMsg = getErrorMessage(response.error, 'Unable to save event changes. Please try again.');
+      if (error) {
+        console.error('updateEventMutation - Supabase error:', JSON.stringify(error, null, 2));
+        const errMsg = getErrorMessage(error, 'Unable to save event changes. Please try again.');
         throw new Error(errMsg);
       }
 
-      if (!response.data) {
+      if (!data) {
         throw new Error('No data returned after event update.');
       }
 
-      const normalizedEvent = mapDatabaseEventToEvent(response.data as Record<string, unknown>);
-      console.log('Event updated successfully:', JSON.stringify(normalizedEvent));
+      const normalizedEvent = mapDatabaseEventToEvent(data as Record<string, unknown>);
+      if (updatedEvent.gameResult) {
+        normalizedEvent.gameResult = updatedEvent.gameResult;
+      }
+      console.log('updateEventMutation SUCCESS - saved date:', normalizedEvent.date, 'saved time:', normalizedEvent.time);
       return normalizedEvent;
     },
     onMutate: async (updatedEvent: Event) => {
@@ -782,7 +764,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
       return { previousEvents };
     },
     onSuccess: (savedEvent: Event) => {
-      console.log('updateEventMutation onSuccess - updating cache with:', savedEvent.id, savedEvent.date, savedEvent.time);
+      console.log('updateEventMutation onSuccess - cache update with date:', savedEvent.date, 'time:', savedEvent.time);
       queryClient.setQueryData<Event[]>(['events', user?.id], (old) => mergeEventIntoList(old, savedEvent));
     },
     onError: (error: Error, _updatedEvent, context) => {
@@ -791,14 +773,17 @@ export const [AppProvider, useApp] = createContextHook(() => {
         queryClient.setQueryData(['events', user?.id], context.previousEvents);
       }
     },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ['events', user?.id] });
-      void queryClient.invalidateQueries({ queryKey: ['events'] });
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['events', user?.id] });
+      await queryClient.invalidateQueries({ queryKey: ['events'] });
     },
   });
 
-  const updateEvent = useCallback(async (updatedEvent: Event) => {
-    return updateEventMutation.mutateAsync(updatedEvent);
+  const updateEvent = useCallback(async (updatedEvent: Event): Promise<Event> => {
+    console.log('updateEvent called - date:', updatedEvent.date, 'time:', updatedEvent.time);
+    const result = await updateEventMutation.mutateAsync(updatedEvent);
+    console.log('updateEvent resolved - date:', result.date, 'time:', result.time);
+    return result;
   }, [updateEventMutation]);
 
   const addGameMutation = useMutation({
