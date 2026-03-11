@@ -721,8 +721,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
         .select()
         .single();
 
-      if (result.error && (result.error.message.includes('column') || result.error.code === '42703')) {
-        console.log('Full update failed, retrying with core fields only:', result.error.message);
+      if (result.error) {
+        console.log('Full update failed, retrying with core fields only:', result.error.message, result.error.code);
         result = await supabase
           .from('events')
           .update(coreUpdateData)
