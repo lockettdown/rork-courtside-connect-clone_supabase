@@ -33,51 +33,14 @@ const normalizeTeamId = (teamId: string): string | null => {
   return isUuid(teamId) ? teamId : null;
 };
 
-const normalizeEventPayload = (updatedEvent: Event) => {
+const buildEventUpdatePayload = (updatedEvent: Event) => {
   const normalizedTeamId = normalizeTeamId(updatedEvent.teamId);
 
   if (!normalizedTeamId) {
     throw new Error('Please select a valid team before saving the event.');
   }
 
-  return {
-    type: updatedEvent.type,
-    title: updatedEvent.title,
-    opponent: updatedEvent.opponent || null,
-    team_id: normalizedTeamId,
-    team_name: updatedEvent.teamName,
-    date: updatedEvent.date,
-    time: updatedEvent.time,
-    location: updatedEvent.location,
-    is_home: updatedEvent.isHome ?? true,
-    game_result: updatedEvent.gameResult ?? null,
-    updated_at: new Date().toISOString(),
-  };
-};
-
-const formatEventUpdateError = (error: unknown): string => {
-  const message = getErrorMessage(error, 'Unable to save event changes. Please try again.');
-
-  if (message.includes('invalid input syntax for type uuid')) {
-    return 'Unable to save the event because the selected team is invalid.';
-  }
-
-  return message;
-};
-
-const isPostgrestMissingColumnError = (error: unknown): boolean => {
-  const message = getErrorMessage(error, '');
-  return message.includes('column') || message.includes('schema cache');
-};
-
-const buildLegacyEventPayload = (updatedEvent: Event) => {
-  const normalizedTeamId = normalizeTeamId(updatedEvent.teamId);
-
-  if (!normalizedTeamId) {
-    throw new Error('Please select a valid team before saving the event.');
-  }
-
-  return {
+  const payload: Record<string, unknown> = {
     type: updatedEvent.type,
     title: updatedEvent.title,
     opponent: updatedEvent.opponent || null,
@@ -89,6 +52,12 @@ const buildLegacyEventPayload = (updatedEvent: Event) => {
     is_home: updatedEvent.isHome ?? true,
     updated_at: new Date().toISOString(),
   };
+
+  if (updatedEvent.gameResult !== undefined) {
+    payload.game_result = updatedEvent.gameResult;
+  }
+
+  return payload;
 };
 import { MOCK_MESSAGES } from '@/constants/mockData';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
@@ -768,24 +737,24 @@ export const [AppProvider, useApp] = createContextHook(() => {
         opponent: updatedEvent.opponent,
       });
 
-      const primaryUpdateData = normalizeEventPayload(updatedEvent);
-
-      console.log('Event update payload:', JSON.stringify(primaryUpdateData));
+      const updatePayload = buildEventUpdatePayload(updatedEvent);
+      console.log('Event update payload:', JSON.stringify(updatePayload));
 
       let response = await supabase
         .from('events')
-        .update(primaryUpdateData)
+        .update(updatePayload)
         .eq('id', updatedEvent.id)
         .eq('user_id', user.id)
         .select()
         .single();
 
-      if (response.error && isPostgrestMissingColumnError(response.error)) {
-        const legacyUpdateData = buildLegacyEventPayload(updatedEvent);
-        console.log('Retrying event update with legacy payload:', JSON.stringify(legacyUpdateData));
+      if (response.error) {
+        console.log('First update attempt failed:', response.error.message);
+        const { game_result: _removed, ...payloadWithoutGameResult } = updatePayload;
+        console.log('Retrying without game_result column:', JSON.stringify(payloadWithoutGameResult));
         response = await supabase
           .from('events')
-          .update(legacyUpdateData)
+          .update(payloadWithoutGameResult)
           .eq('id', updatedEvent.id)
           .eq('user_id', user.id)
           .select()
@@ -794,11 +763,16 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
       if (response.error) {
         console.error('Error updating event:', JSON.stringify(response.error, null, 2));
-        throw new Error(formatEventUpdateError(response.error));
+        const errMsg = getErrorMessage(response.error, 'Unable to save event changes. Please try again.');
+        throw new Error(errMsg);
+      }
+
+      if (!response.data) {
+        throw new Error('No data returned after event update.');
       }
 
       const normalizedEvent = mapDatabaseEventToEvent(response.data as Record<string, unknown>);
-      console.log('Event updated successfully:', normalizedEvent);
+      console.log('Event updated successfully:', JSON.stringify(normalizedEvent));
       return normalizedEvent;
     },
     onMutate: async (updatedEvent: Event) => {
@@ -808,14 +782,14 @@ export const [AppProvider, useApp] = createContextHook(() => {
       return { previousEvents };
     },
     onSuccess: (savedEvent: Event) => {
+      console.log('updateEventMutation onSuccess - updating cache with:', savedEvent.id, savedEvent.date, savedEvent.time);
       queryClient.setQueryData<Event[]>(['events', user?.id], (old) => mergeEventIntoList(old, savedEvent));
     },
     onError: (error: Error, _updatedEvent, context) => {
-      console.error('Error updating event:', error.message);
+      console.error('updateEventMutation onError:', error.message);
       if (context?.previousEvents) {
         queryClient.setQueryData(['events', user?.id], context.previousEvents);
       }
-      alert(`Error updating event: ${error.message}`);
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['events', user?.id] });
