@@ -20,7 +20,7 @@ interface EventDetailModalProps {
   visible: boolean;
   event: Event | null;
   onClose: () => void;
-  onUpdate: (updatedEvent: Event) => void;
+  onUpdate: (updatedEvent: Event) => Promise<Event | void>;
 }
 
 export default function EventDetailModal({
@@ -42,6 +42,7 @@ export default function EventDetailModal({
   const [opponent, setOpponent] = useState<string>('');
   const [isHome, setIsHome] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
 
   const isAdmin = user?.role === 'coach';
 
@@ -60,25 +61,47 @@ export default function EventDetailModal({
     setShowDeleteConfirm(false);
   }, [event]);
 
-  const handleSave = () => {
-    if (!event) return;
+  const handleSave = async () => {
+    if (!event || isSaving) return;
 
-    if (title.trim() && selectedTeamId && date.trim() && time.trim() && location.trim()) {
-      const selectedTeam = teams.find(t => t.id === selectedTeamId);
-      const updatedEvent: Event = {
-        ...event,
-        type: eventType,
-        title: title.trim(),
-        teamId: selectedTeamId,
-        teamName: selectedTeam?.name || event.teamName,
-        date: date.trim(),
-        time: time.trim(),
-        location: location.trim(),
-        opponent: opponent.trim() || undefined,
-        isHome,
-      };
-      onUpdate(updatedEvent);
+    if (!(title.trim() && selectedTeamId && date.trim() && time.trim() && location.trim())) {
+      Alert.alert('Missing details', 'Please complete the title, team, date, time, and location before saving.');
+      return;
+    }
+
+    const selectedTeam = teams.find((team) => team.id === selectedTeamId);
+    const updatedEvent: Event = {
+      ...event,
+      type: eventType,
+      title: title.trim(),
+      teamId: selectedTeamId,
+      teamName: selectedTeam?.name || event.teamName,
+      date: date.trim(),
+      time: time.trim(),
+      location: location.trim(),
+      opponent: opponent.trim() || undefined,
+      isHome,
+    };
+
+    setIsSaving(true);
+    try {
+      const savedEvent = await onUpdate(updatedEvent);
+      if (savedEvent) {
+        setEventType(savedEvent.type);
+        setTitle(savedEvent.title);
+        setSelectedTeamId(savedEvent.teamId);
+        setDate(savedEvent.date);
+        setTime(savedEvent.time);
+        setLocation(savedEvent.location);
+        setOpponent(savedEvent.opponent || '');
+        setIsHome(savedEvent.isHome || false);
+      }
       setIsEditing(false);
+    } catch (error) {
+      console.error('Error saving event changes:', error);
+      Alert.alert('Save failed', error instanceof Error ? error.message : 'Unable to save event changes. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -518,11 +541,14 @@ export default function EventDetailModal({
                   <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
-                  style={styles.saveButton}
-                  onPress={handleSave}
+                  style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+                  onPress={() => {
+                    void handleSave();
+                  }}
                   activeOpacity={0.8}
+                  disabled={isSaving}
                 >
-                  <Text style={styles.saveButtonText}>Save Changes</Text>
+                  <Text style={styles.saveButtonText}>{isSaving ? 'Saving...' : 'Save Changes'}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -987,6 +1013,9 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     padding: theme.spacing.md,
     alignItems: 'center',
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
   },
   saveButtonText: {
     fontSize: theme.fontSize.md,

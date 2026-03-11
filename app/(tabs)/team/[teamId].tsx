@@ -507,7 +507,7 @@ export default function TeamScreen() {
             setIsEventDetailModalVisible(false);
             setSelectedEvent(null);
           }}
-          onUpdate={() => {}}
+          onUpdate={async () => undefined}
         />
 
         <Modal

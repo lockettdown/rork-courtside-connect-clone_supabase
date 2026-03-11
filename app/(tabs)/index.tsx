@@ -235,9 +235,10 @@ export default function HomeScreen() {
         visible={showEventDetailModal}
         event={selectedEvent}
         onClose={() => setShowEventDetailModal(false)}
-        onUpdate={(updatedEvent) => {
-          updateEvent(updatedEvent);
-          setSelectedEvent(updatedEvent);
+        onUpdate={async (updatedEvent) => {
+          const savedEvent = await updateEvent(updatedEvent);
+          setSelectedEvent(savedEvent);
+          return savedEvent;
         }}
       />
     </View>

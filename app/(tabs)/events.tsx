@@ -99,9 +99,10 @@ export default function EventsScreen() {
     setDetailModalVisible(true);
   };
 
-  const handleUpdateEvent = (updatedEvent: Event) => {
-    updateEvent(updatedEvent);
-    setSelectedEvent(updatedEvent);
+  const handleUpdateEvent = async (updatedEvent: Event): Promise<Event> => {
+    const savedEvent = await updateEvent(updatedEvent);
+    setSelectedEvent(savedEvent);
+    return savedEvent;
   };
 
   const handleAddEvent = (eventData: {

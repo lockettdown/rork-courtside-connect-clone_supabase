@@ -2,6 +2,94 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Event, Fan, Game, Message, Play, Player, Team, User } from '@/types';
+
+const getStringValue = (value: unknown): string => {
+  return typeof value === 'string' ? value : '';
+};
+
+const mapDatabaseEventToEvent = (databaseEvent: Record<string, unknown>): Event => ({
+  id: getStringValue(databaseEvent.id),
+  type: databaseEvent.type as Event['type'],
+  title: getStringValue(databaseEvent.title),
+  opponent: typeof databaseEvent.opponent === 'string' ? databaseEvent.opponent : undefined,
+  teamId: getStringValue(databaseEvent.team_id),
+  teamName: getStringValue(databaseEvent.team_name),
+  date: getStringValue(databaseEvent.date),
+  time: getStringValue(databaseEvent.time),
+  location: getStringValue(databaseEvent.location),
+  isHome: typeof databaseEvent.is_home === 'boolean' ? databaseEvent.is_home : undefined,
+  gameResult: databaseEvent.game_result as Event['gameResult'],
+});
+
+const mergeEventIntoList = (events: Event[] | undefined, updatedEvent: Event): Event[] | undefined => {
+  if (!events) {
+    return events;
+  }
+
+  return events.map((event) => (event.id === updatedEvent.id ? updatedEvent : event));
+};
+
+const normalizeTeamId = (teamId: string): string | null => {
+  return isUuid(teamId) ? teamId : null;
+};
+
+const normalizeEventPayload = (updatedEvent: Event) => {
+  const normalizedTeamId = normalizeTeamId(updatedEvent.teamId);
+
+  if (!normalizedTeamId) {
+    throw new Error('Please select a valid team before saving the event.');
+  }
+
+  return {
+    type: updatedEvent.type,
+    title: updatedEvent.title,
+    opponent: updatedEvent.opponent || null,
+    team_id: normalizedTeamId,
+    team_name: updatedEvent.teamName,
+    date: updatedEvent.date,
+    time: updatedEvent.time,
+    location: updatedEvent.location,
+    is_home: updatedEvent.isHome ?? true,
+    game_result: updatedEvent.gameResult ?? null,
+    updated_at: new Date().toISOString(),
+  };
+};
+
+const formatEventUpdateError = (error: unknown): string => {
+  const message = getErrorMessage(error, 'Unable to save event changes. Please try again.');
+
+  if (message.includes('invalid input syntax for type uuid')) {
+    return 'Unable to save the event because the selected team is invalid.';
+  }
+
+  return message;
+};
+
+const isPostgrestMissingColumnError = (error: unknown): boolean => {
+  const message = getErrorMessage(error, '');
+  return message.includes('column') || message.includes('schema cache');
+};
+
+const buildLegacyEventPayload = (updatedEvent: Event) => {
+  const normalizedTeamId = normalizeTeamId(updatedEvent.teamId);
+
+  if (!normalizedTeamId) {
+    throw new Error('Please select a valid team before saving the event.');
+  }
+
+  return {
+    type: updatedEvent.type,
+    title: updatedEvent.title,
+    opponent: updatedEvent.opponent || null,
+    team_id: normalizedTeamId,
+    team_name: updatedEvent.teamName,
+    date: updatedEvent.date,
+    time: updatedEvent.time,
+    location: updatedEvent.location,
+    is_home: updatedEvent.isHome ?? true,
+    updated_at: new Date().toISOString(),
+  };
+};
 import { MOCK_MESSAGES } from '@/constants/mockData';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { Session } from '@supabase/supabase-js';
@@ -267,19 +355,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
         throw error;
       }
       console.log('Fetched events:', data);
-      return data.map(e => ({
-        id: e.id,
-        type: e.type,
-        title: e.title,
-        opponent: e.opponent,
-        teamId: e.team_id,
-        teamName: e.team_name,
-        date: e.date,
-        time: e.time,
-        location: e.location,
-        isHome: e.is_home,
-        gameResult: e.game_result,
-      })) as Event[];
+      return data.map((event) => mapDatabaseEventToEvent(event as Record<string, unknown>));
     },
     enabled: !!user?.id && isSupabaseConfigured,
     retry: false,
@@ -692,45 +768,47 @@ export const [AppProvider, useApp] = createContextHook(() => {
         opponent: updatedEvent.opponent,
       });
 
-      const updateData: Record<string, unknown> = {
-        type: updatedEvent.type,
-        title: updatedEvent.title,
-        opponent: updatedEvent.opponent || null,
-        team_id: updatedEvent.teamId,
-        team_name: updatedEvent.teamName,
-        date: updatedEvent.date,
-        time: updatedEvent.time,
-        location: updatedEvent.location,
-        is_home: updatedEvent.isHome,
-        updated_at: new Date().toISOString(),
-      };
+      const primaryUpdateData = normalizeEventPayload(updatedEvent);
 
-      console.log('Event update payload:', JSON.stringify(updateData));
+      console.log('Event update payload:', JSON.stringify(primaryUpdateData));
 
-      const { data, error } = await supabase
+      let response = await supabase
         .from('events')
-        .update(updateData)
+        .update(primaryUpdateData)
         .eq('id', updatedEvent.id)
         .eq('user_id', user.id)
         .select()
         .single();
 
-      if (error) {
-        console.error('Error updating event:', JSON.stringify(error, null, 2));
-        throw new Error(`Failed to update event: ${error.message}`);
+      if (response.error && isPostgrestMissingColumnError(response.error)) {
+        const legacyUpdateData = buildLegacyEventPayload(updatedEvent);
+        console.log('Retrying event update with legacy payload:', JSON.stringify(legacyUpdateData));
+        response = await supabase
+          .from('events')
+          .update(legacyUpdateData)
+          .eq('id', updatedEvent.id)
+          .eq('user_id', user.id)
+          .select()
+          .single();
       }
 
-      console.log('Event updated successfully:', data);
-      return data;
+      if (response.error) {
+        console.error('Error updating event:', JSON.stringify(response.error, null, 2));
+        throw new Error(formatEventUpdateError(response.error));
+      }
+
+      const normalizedEvent = mapDatabaseEventToEvent(response.data as Record<string, unknown>);
+      console.log('Event updated successfully:', normalizedEvent);
+      return normalizedEvent;
     },
     onMutate: async (updatedEvent: Event) => {
       await queryClient.cancelQueries({ queryKey: ['events', user?.id] });
       const previousEvents = queryClient.getQueryData<Event[]>(['events', user?.id]);
-      queryClient.setQueryData<Event[]>(['events', user?.id], (old) => {
-        if (!old) return old;
-        return old.map(e => e.id === updatedEvent.id ? updatedEvent : e);
-      });
+      queryClient.setQueryData<Event[]>(['events', user?.id], (old) => mergeEventIntoList(old, updatedEvent));
       return { previousEvents };
+    },
+    onSuccess: (savedEvent: Event) => {
+      queryClient.setQueryData<Event[]>(['events', user?.id], (old) => mergeEventIntoList(old, savedEvent));
     },
     onError: (error: Error, _updatedEvent, context) => {
       console.error('Error updating event:', error.message);
@@ -740,12 +818,13 @@ export const [AppProvider, useApp] = createContextHook(() => {
       alert(`Error updating event: ${error.message}`);
     },
     onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ['events', user?.id] });
       void queryClient.invalidateQueries({ queryKey: ['events'] });
     },
   });
 
-  const updateEvent = useCallback((updatedEvent: Event) => {
-    updateEventMutation.mutate(updatedEvent);
+  const updateEvent = useCallback(async (updatedEvent: Event) => {
+    return updateEventMutation.mutateAsync(updatedEvent);
   }, [updateEventMutation]);
 
   const addGameMutation = useMutation({
