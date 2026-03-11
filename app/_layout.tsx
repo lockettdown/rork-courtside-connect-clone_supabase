@@ -6,9 +6,26 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AppProvider, useApp } from '@/contexts/AppContext';
 import { trpc, trpcClient } from '@/lib/trpc';
 
-SplashScreen.preventAutoHideAsync();
+void SplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes('fetch') || message.includes('network') || message.includes('Failed')) {
+          return false;
+        }
+        return failureCount < 2;
+      },
+      networkMode: 'online',
+    },
+    mutations: {
+      retry: false,
+      networkMode: 'online',
+    },
+  },
+});
 
 function RootLayoutNav() {
   const { isAuthenticated, isLoading } = useApp();
@@ -25,7 +42,7 @@ function RootLayoutNav() {
     } else if (isAuthenticated && !inAuthGroup) {
       router.replace('/(tabs)');
     }
-  }, [isAuthenticated, segments, isLoading]);
+  }, [isAuthenticated, segments, isLoading, router]);
 
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
@@ -38,7 +55,7 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   useEffect(() => {
-    SplashScreen.hideAsync();
+    void SplashScreen.hideAsync();
   }, []);
 
   return (
